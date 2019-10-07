@@ -172,11 +172,20 @@ class FileListBox {
   * @property {string} path
   * @property {JQuery<HTMLElement>} elem
   * @property {ZFile} [parent]
-  * @property {ZStatistics[]} [stats]
+  * @property {VidStats} [stats]
   */
 
-   /** 
-  * @typedef {object} ZStatistics
+/** 
+  * @typedef {object} VidStats
+  * @property {string} originalPath
+  * @property {string} processedPath
+  * @property {string} csvPath
+  * @property {number} fps
+  * @property {FrameStat[]} frames
+  */
+
+/** 
+  * @typedef {object} FrameStat
   * @property {number} frame
   * @property {{label:string, confidence:number, xMin:number, yMin:number, xMax:number, yMax:number}[]} objects
   */

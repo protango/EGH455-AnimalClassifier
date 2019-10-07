@@ -6,7 +6,7 @@ const FileSelector = require('../components/FileSelector')
 const fs = require('fs')
 const parseCSV = require("../components/CSVParser");
 
-var ffprobe = require('ffprobe');
+var ffprobe = require('ffprobe'), ffprobeStatic = require('ffprobe-static');
 const { Menu, MenuItem, dialog } = remote
 
 // Create Menu
@@ -45,6 +45,7 @@ $("#btnImportCsv").click(async (e) => {
       dialog.showMessageBox({type: "warning", message: "All files must be in csv format", title: "Wrong format"})
       return;
    }
+   $(".statusBar span").html("Status: Processing CSV files...");
    if (files.length === 1) {
       // single csv select
       if (fileListBox.selectedIndex === null) {
@@ -52,7 +53,7 @@ $("#btnImportCsv").click(async (e) => {
          return;
       }
       fileListBox.addFile(files[0].path, fileListBox.selectedFilePath);
-      fileListBox.setStats(fileListBox.selectedFilePath, parseCSV(files[0].path));
+      fileListBox.setStats(fileListBox.selectedFilePath, await buildStats(fileListBox.selectedFilePath, files[0].path));
    } else {
       // multi csv select
       doneFiles = [];
@@ -65,14 +66,15 @@ $("#btnImportCsv").click(async (e) => {
             return;
          }
          fileListBox.addFile(f.path, parent.path);
-         fileListBox.setStats(parent.path, parseCSV(f.path));
+         fileListBox.setStats(parent.path, await buildStats(parent.path, f.path));
          doneFiles.push(f.path);
       }
    }
+   $(".statusBar span").html("Status: Ready");
    
 });
 
-$("#btnProcess").click(()=>{
+$("#btnProcess").click(async ()=>{
    let vidFiles = getVideoFiles();
    if (fileListBox.selectedIndex === null) {
       dialog.showMessageBox({type: "warning", message: "You must select a video to process first", title: "No file selected"});
@@ -82,14 +84,24 @@ $("#btnProcess").click(()=>{
       dialog.showMessageBox({type: "warning", message: "This video has already been processed", title: "Already processed"});
       return;
    }
+   let inputFilePath = fileListBox.selectedFilePath;
+   let outputFilePath = "./DLM/Output/"+inputFilePath.replace(/^.*[\\\/]/, '');
    let python = require('child_process').spawn('python', ['./DLM/process.py', fileListBox.selectedFilePath]);
+   
    python.stdout.on('data',function(data){
       setProgress(Number(data.toString('utf8')));
    });
-   python.on("exit", ()=>{
+   python.once("exit", ()=>{
       setProgress(100);
+      fileListBox.setStats(
+         inputFilePath, 
+         buildStats(
+            inputFilePath, 
+            outputFilePath.substr(0, outputFilePath.length - 4) + ".csv", 
+            outputFilePath
+         )
+      );
       refreshVideo();
-      
    });
 });
 
@@ -167,7 +179,9 @@ setInterval(() => {
       // has statistics
       $(".statsTableCont .noData").hide();
       noDataDisplayed = false;
-   } else if (!noDataDisplayed) {
+
+
+   } else if (!noDataDisplayed && (!f || !f.stats)) {
       // no statistics
       sharkCnt.text(0);
       surfCnt.text(0);
@@ -177,6 +191,25 @@ setInterval(() => {
       noDataDisplayed = true;
    }
 }, 40); // 25Hz
+
+async function buildStats(vidPath, csvPath, outVidPath) {
+   let probeResult = await ffprobe(vidPath, { path: ffprobeStatic.path });
+   let fps = probeResult.streams.find(x=>x.codec_type==="video").r_frame_rate;
+   fps = /(\d+)\/(\d+)/.exec(fps);
+   fps = Number(fps[1]) / Number(fps[2]);
+   /** @type {FileListBox.VidStats} */ 
+   let stats = {originalPath: vidPath, csvPath: csvPath, fps: fps, processedPath: outVidPath};
+   if (!outVidPath) {
+      let outputFilePath = "./DLM/Output/"+vidPath.replace(/^.*[\\\/]/, '');
+      await new Promise((resolve) => {
+         let python = require('child_process').spawn('python', ['./DLM/makeVideo.py', vidPath, csvPath]);
+         python.once('exit', function() {resolve();});
+      });
+      stats.processedPath = outputFilePath;
+   }
+   stats.frames = parseCSV(csvPath);
+   return stats;
+}
 
 function refreshVideo() {
    let mainsrc = $("#mainVid source").attr("src");
@@ -231,7 +264,7 @@ function refreshVideo() {
             $("#mainVid").addClass("inactive");
             $("#outVid").removeClass("inactive");
          }
-      } else if ($("#mainVid").is(".inactive")) {
+      } else if ((!showOutput || !outputExists) && $("#mainVid").is(".inactive")) {
          // showing input video
          $("#mainVid")[0].currentTime = $("#outVid")[0].currentTime;
          if (isPlaying($("#outVid")[0])) {
