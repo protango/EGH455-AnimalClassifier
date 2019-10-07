@@ -4,7 +4,9 @@ const mime = require('mime-types')
 const FileListBox = require('../components/FileListBox')
 const FileSelector = require('../components/FileSelector')
 const fs = require('fs')
-var ffmpeg = require('fluent-ffmpeg');
+const parseCSV = require("../components/CSVParser");
+
+var ffprobe = require('ffprobe');
 const { Menu, MenuItem, dialog } = remote
 
 // Create Menu
@@ -50,6 +52,7 @@ $("#btnImportCsv").click(async (e) => {
          return;
       }
       fileListBox.addFile(files[0].path, fileListBox.selectedFilePath);
+      fileListBox.setStats(fileListBox.selectedFilePath, parseCSV(files[0].path));
    } else {
       // multi csv select
       doneFiles = [];
@@ -62,6 +65,7 @@ $("#btnImportCsv").click(async (e) => {
             return;
          }
          fileListBox.addFile(f.path, parent.path);
+         fileListBox.setStats(parent.path, parseCSV(f.path));
          doneFiles.push(f.path);
       }
    }
@@ -71,7 +75,11 @@ $("#btnImportCsv").click(async (e) => {
 $("#btnProcess").click(()=>{
    let vidFiles = getVideoFiles();
    if (fileListBox.selectedIndex === null) {
-      dialog.showMessageBox({type: "warning", message: "You must select a video to process first", title: "No file selected"})
+      dialog.showMessageBox({type: "warning", message: "You must select a video to process first", title: "No file selected"});
+      return;
+   }
+   if (fileListBox.selectedFile.stats) {
+      dialog.showMessageBox({type: "warning", message: "This video has already been processed", title: "Already processed"});
       return;
    }
    let python = require('child_process').spawn('python', ['./DLM/process.py', fileListBox.selectedFilePath]);
@@ -81,6 +89,7 @@ $("#btnProcess").click(()=>{
    python.on("exit", ()=>{
       setProgress(100);
       refreshVideo();
+      
    });
 });
 
@@ -147,6 +156,27 @@ function refreshButtons() {
    $("#btnPrevVideo").attr("disabled", !prev);
    $("#btnNextVideo").attr("disabled", !next);
 }
+
+// table build task
+let sharkCnt = $("#sharkCnt"), surfCnt = $("#surferCnt"), dolphCnt = $("#dolphinCnt");
+let noDataDisplayed = false;
+setInterval(() => {
+   let f = fileListBox.selectedFile;
+   let vid = $(".vid:not(.inactive)");
+   if (f && f.stats && isPlaying(vid[0])) {
+      // has statistics
+      $(".statsTableCont .noData").hide();
+      noDataDisplayed = false;
+   } else if (!noDataDisplayed) {
+      // no statistics
+      sharkCnt.text(0);
+      surfCnt.text(0);
+      dolphCnt.text(0);
+      $(".statsTable tbody").empty();
+      $(".statsTableCont .noData").show();
+      noDataDisplayed = true;
+   }
+}, 40); // 25Hz
 
 function refreshVideo() {
    let mainsrc = $("#mainVid source").attr("src");

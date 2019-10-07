@@ -13,6 +13,11 @@ class FileListBox {
         if (this.selectedIndex===null) return null;
         return this.files[this.selectedIndex].path;
     }
+    /** @type {ZFile} */
+    get selectedFile() {
+        if (this.selectedIndex===null) return null;
+        return this.files[this.selectedIndex];
+    }
 
     /**
      * Constructs a new FileListBox
@@ -72,6 +77,7 @@ class FileListBox {
         let idx = this.files.findIndex(x => x.path === filePath);
         if (idx >= 0) {
             let f = this.files[idx];
+            if (f.parent) this.rmStats(f.parent.path);
             f.elem.remove();
             this.files.splice(idx, 1);
         }
@@ -130,6 +136,18 @@ class FileListBox {
         onChangeHandler();
     }
 
+    setStats(vidPath, stats) {
+        let f = this.files.find(x => x.path === vidPath);
+        f.stats = stats;
+        f.elem.children("i").css("color", "green");
+    }
+
+    rmStats(vidPath, stats) {
+        let f = this.files.find(x => x.path === vidPath);
+        f.stats = null;
+        f.elem.children("i").css("color", "black");
+    }
+
     /**
      * Registers an event handler for when the selected item changes
      * @param {()=>void} fxn Handler
@@ -154,4 +172,11 @@ class FileListBox {
   * @property {string} path
   * @property {JQuery<HTMLElement>} elem
   * @property {ZFile} [parent]
+  * @property {ZStatistics[]} [stats]
+  */
+
+   /** 
+  * @typedef {object} ZStatistics
+  * @property {number} frame
+  * @property {{label:string, confidence:number, xMin:number, yMin:number, xMax:number, yMax:number}[]} objects
   */
