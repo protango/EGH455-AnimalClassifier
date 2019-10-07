@@ -1,11 +1,12 @@
 # USAGE:
-# python process.py "[PATH_TO_VIDEO]"
+# python process.py "[PATH_TO_VIDEO]" [DLM_Selection] (either "YOLO" or "RCNN")
 import sys, os
 from shutil import copyfile
 import ntpath
 import time
 
 videoPath = sys.argv[1]
+DLM = sys.argv[2]
 scriptDir = os.path.dirname(os.path.abspath(__file__))
 
 # simulate work

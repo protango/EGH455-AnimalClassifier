@@ -86,16 +86,16 @@ $("#btnProcess").click(async ()=>{
    }
    let inputFilePath = fileListBox.selectedFilePath;
    let outputFilePath = "./DLM/Output/"+inputFilePath.replace(/^.*[\\\/]/, '');
-   let python = require('child_process').spawn('python', ['./DLM/process.py', fileListBox.selectedFilePath]);
+   let python = require('child_process').spawn('python', ['./DLM/process.py', fileListBox.selectedFilePath, $("#setDLM").val()]);
    
    python.stdout.on('data',function(data){
       setProgress(Number(data.toString('utf8')));
    });
-   python.once("exit", ()=>{
+   python.once("exit", async ()=>{
       setProgress(100);
       fileListBox.setStats(
          inputFilePath, 
-         buildStats(
+         await buildStats(
             inputFilePath, 
             outputFilePath.substr(0, outputFilePath.length - 4) + ".csv", 
             outputFilePath
@@ -138,7 +138,7 @@ fileListBox.onModify(()=>{
 });
 
 function setProgress(num) {
-   if (!num || num === NaN || num === 100) {
+   if (!num || isNaN(num) || num === 100) {
       $("#btnProcess").html(ogButton);
       $("#btnProcess").css("background", "rgba(52,199,52,1)");
       $(".statusBar span").html("Status: Ready");
@@ -170,17 +170,39 @@ function refreshButtons() {
 }
 
 // table build task
-let sharkCnt = $("#sharkCnt"), surfCnt = $("#surferCnt"), dolphCnt = $("#dolphinCnt");
+let sharkCnt = $("#sharkCnt"), surfCnt = $("#surferCnt"), dolphCnt = $("#dolphinCnt"), statsTBody = $(".statsTable tbody");
 let noDataDisplayed = false;
 setInterval(() => {
    let f = fileListBox.selectedFile;
    let vid = $(".vid:not(.inactive)");
-   if (f && f.stats && isPlaying(vid[0])) {
+   if (f && f.stats) {
       // has statistics
       $(".statsTableCont .noData").hide();
       noDataDisplayed = false;
 
-
+      statsTBody.empty();
+      if (f.stats.frames.length) {
+         let prevDiff = -1;
+         for (let i = 0; i < f.stats.frames.length; i++) {
+            var frame = f.stats.frames[i];
+            let tDiff = Math.abs(vid[0].currentTime - (frame.frame / f.stats.fps))
+            if (i !== 0 && prevDiff < tDiff) {
+               frame = f.stats.frames[i-1];
+               break;
+            }
+            prevDiff = tDiff;
+         }
+         let i = 0;
+         for (let obj of frame.objects || []) {
+            statsTBody.append($(`
+               <tr>
+                  <td>${++i}</td>
+                  <td>${obj.label}</td>
+                  <td>${Math.round(obj.confidence*100)}%</td>
+               </tr>
+            `));
+         }
+      }
    } else if (!noDataDisplayed && (!f || !f.stats)) {
       // no statistics
       sharkCnt.text(0);
@@ -207,7 +229,7 @@ async function buildStats(vidPath, csvPath, outVidPath) {
       });
       stats.processedPath = outputFilePath;
    }
-   stats.frames = parseCSV(csvPath);
+   stats.frames = await parseCSV(csvPath);
    return stats;
 }
 
