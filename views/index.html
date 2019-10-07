@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>EGH455 Animal Classifier</title>
+    <!-- https://electronjs.org/docs/tutorial/security#csp-meta-tag -->
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self';" />
+    <link rel="stylesheet" type="text/css" href="../site.css" />
+    
+  </head>
+  <body>
+    <div class="container">
+      <div class="sideBar">
+        <div class="sbTop">
+          <div class="dblButtonContainer">
+            <button id="btnLoadData" type="button"><i class="fas fa-upload"></i> Load Data</button>
+            <button id="btnImportCsv" type="button"><i class="fas fa-file-import"></i> Import CSV</button>
+          </div>
+          <span>Selected Files:</span>
+          <div class="fileList">
+            <div><i class="fas fa-file-video"></i><span>File.mp4</span><button class="del">x</button></div>
+            <div class="sub">
+              <i class="fas fa-file-csv"></i>
+              <span>File.csv</span>
+              <button class="del">x</button>
+            </div>
+            <div><i class="fas fa-file-video"></i><span>File.mp4</span></div>
+            <div><i class="fas fa-file-video"></i><span>File.mp4</span></div>
+          </div>
+          <div>
+            <label for="setDLM">
+                Deep Learning Model: 
+                <select id="setDLM">
+                  <option value="yolo">YOLOv3</option>
+                  <option value="rcnn">RCNN</option>
+                </select>
+              </label>
+          </div>
+          <div>
+            <button id="btnProcess" type="button">Process Data <i class="fas fa-angle-double-right"></i></button>
+          </div>
+        </div>
+        <div class="sbBot">
+          <span>Live Statistics:</span>
+          <div class="statsSummary">
+            <div><img src="../images/shark_icon.png" /><span>0</span></div>
+            <div><img src="../images/surfer_icon.png" /><span>0</span></div>
+            <div><img src="../images/dolphin_icon.png" /><span>0</span></div>
+          </div>
+          <div class="statsTableCont">
+            <div>
+              <table class="statsTable">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Object</th>
+                    <th>Confidence</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>1</td>
+                    <td>Shark</td>
+                    <td>90%</td>
+                  </tr>
+                  <tr>
+                      <td>2</td>
+                      <td>Surfer</td>
+                      <td>90%</td>
+                    </tr>
+                </tbody>
+              </table>
+              <p>Process a video to see results</p>
+            </div>
+          </div>
+          <div class="dblButtonContainer">
+            <button id="btnSaveVideo" type="button"><i class="fas fa-download"></i> Save Video</button>
+            <button id="btnExportCSV" type="button"><i class="fas fa-file-export"></i> Export CSV</button>
+          </div>
+        </div>
+      </div>
+      <div class="mainPanel">
+        <div class="vidControls">
+          <button disabled id="btnPrevVideo" type="button"><i class="fas fa-backward"></i> Prev Video</button>
+          <div>
+            <input id="chkShowBoxes" type="checkbox" checked>
+            <label for="chkShowBoxes" >Show detection boxes (if processed)</label>
+          </div>
+          <button disabled id="btnNextVideo" type="button">Next Video <i class="fas fa-forward"></i></button>
+        </div>
+        <video controls id="mainVid" class="vid">
+          <source>
+        </video>
+        <video controls id="outVid" class="vid inactive">
+          <source>
+        </video>
+      </div>
+    </div>
+    <div class="statusBar"><span>Status: Ready</span></div>
+    <script src="../controllers/index.js"></script>
+  </body>
+</html>

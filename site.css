@@ -1,0 +1,239 @@
+@import url("node_modules/@fortawesome/fontawesome-free/css/all.min.css");
+
+html,body {
+    box-sizing: border-box;
+    font-family: sans-serif;
+    height: 100%;
+    margin: 0;
+    font-size: 13px;
+}
+.container {
+    display: flex;
+    flex-direction: row;
+    height: calc(100% - 24px);
+    overflow: auto;
+}
+
+.sideBar>div {
+    width: 271px;
+    border-right: 1px solid gainsboro;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    height: 50%;
+    box-sizing: border-box;
+    min-height: 205px;
+}
+
+.sideBar > div > * {
+    margin: 10px;
+}
+
+.mainPanel {
+    flex-grow: 1;
+    padding: 10px;
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+}
+
+.dblButtonContainer {
+    display: flex;
+    height: 30px;
+}
+.dblButtonContainer button {
+    width: 50%;
+    height: 100%;
+    display: block;
+}
+.dblButtonContainer button:first-child {
+    margin-right: 2px;
+}
+.dblButtonContainer button:last-child {
+    margin-left: 2px;
+}
+
+.fileList {
+    height: calc(100% - 156px);
+    overflow-y : auto;
+    border: 1px solid gray;
+    margin-top: 0;
+    position: relative;
+}
+
+.fileList>div {
+    height: 26px;
+    padding: 2px;
+    cursor: default;
+    user-select: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    position: relative;
+}
+
+.fileList>div.selected {
+    background-color: rgb(98, 164, 249);
+}
+
+.fileList>div:hover:not(.selected) {
+    background: #f0f0f0;
+}
+
+.fileList>div>i {
+    font-size: 21px;
+    line-height: 26px;
+    margin-right: 5px;
+    vertical-align: top;
+}
+
+.fileList>div>span {
+    line-height: 26px;
+    vertical-align: top;
+}
+
+.fileList>div.sub {
+    height: 16px;
+    padding-left: 20px;
+}
+.fileList>div.sub>i {
+    font-size: 16px;
+    line-height: 16px;
+}
+.fileList>div.sub>span {
+    line-height: 16px;
+}
+.fileList .del {
+    color: red;
+    background: white;
+    border: none;
+    height: 19px;
+    display: none;
+    right: 2px;
+    position: absolute;
+    top: calc(50% - 9.5px);
+}
+.fileList .del:hover {
+    font-weight: bold;
+}
+.fileList>div:hover .del {
+    display: unset;
+}
+
+#btnProcess {
+    height: 30px;
+    width: 100%;
+    background-color: #34c734;
+    color: white;
+    border: none;
+    border-radius: 5px;
+}
+
+#btnProcess:hover {
+    background-color: #2cad2c;
+}
+
+.statusBar {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    box-sizing: border-box;
+    background-color: #f0f0f0;
+    border-top: 1px solid gainsboro;
+    padding: 4px 10px;
+}
+.sbBot {
+    border-top: 1px solid gainsboro;
+}
+.sbTop>*:first-child {
+    margin-top: 0;
+}
+
+.statsTableCont {
+    margin-top: 0px;
+    height: calc(100% - 112px);
+    border: 1px solid gray;
+}
+.statsTableCont>div {
+    overflow-y: scroll;
+    height: 100%;
+}
+.statsTableCont p {
+    color: rgb(179, 179, 179);
+    font-size: 12px;
+    text-align: center;
+    font-style: italic;
+}
+
+.statsTable {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.statsTable td,
+.statsTable th {
+    border: 1px solid gainsboro;
+}
+
+.statsTable td:first-child,
+.statsTable th:first-child {
+    border-left: none;
+}
+.statsTable td:last-child,
+.statsTable th:last-child {
+    border-right: none;
+}
+.statsTable th {
+    border-top: none;
+}
+.statsSummary {
+    display: flex;
+}
+
+.statsSummary div {
+    flex-grow: 1;
+}
+
+.statsSummary img {
+    width: 32px;
+    height: 32px;
+}
+
+.statsSummary span {
+    line-height: 32px;
+    vertical-align: top;
+    margin-left: 5px;
+}
+
+.vid {
+    width: 100%;
+    height: calc(100% - 35px);
+    margin-bottom: 10px;
+    margin-top: 5px;
+    background: black;
+}
+.vid.inactive {
+    height: 0px;
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+.vidControls {
+    display: flex;
+    justify-content: space-between;
+    height: 30px;
+    width: 100%;
+    white-space: nowrap;
+    padding-top: 10px;
+}
+
+.vidControls label[for="chkShowBoxes"] {
+    vertical-align: top;
+    line-height: 30px;
+}
+.vidControls #chkShowBoxes {
+    width: 16px;
+    height: 16px;
+    margin-top: 7px;
+    margin-bottom: 7px;
+}
