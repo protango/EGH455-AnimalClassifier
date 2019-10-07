@@ -17,4 +17,7 @@ for i in range(100):
 # copy file to output directory
 copyfile(videoPath, scriptDir + "/Output/" + ntpath.basename(videoPath))
 
+# copy fake csv file
+copyfile(videoPath, scriptDir + "/Output/" + ntpath.basename(videoPath)[:-4] + ".csv")
+
 
