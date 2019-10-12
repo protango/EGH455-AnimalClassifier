@@ -4,16 +4,21 @@ const mime = require('mime-types')
 const FileListBox = require('../components/FileListBox')
 const FileSelector = require('../components/FileSelector')
 const fs = require('fs')
+const os = require('os')
 const parseCSV = require("../components/CSVParser");
+const path = require('path')
 
 var ffprobe = require('ffprobe'), ffprobeStatic = require('ffprobe-static');
+const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+const ffmpeg = require('fluent-ffmpeg');
+ffmpeg.setFfmpegPath(ffmpegPath);
 const { Menu, MenuItem, dialog } = remote
 
 // Create Menu
-//const menu = new Menu()
-//menu.append(new MenuItem({ label: 'File', submenu: [{label: "Load Data"}, {label: "Import CSV"}] }))
-//menu.append(new MenuItem({ label: 'Help', submenu: [{label: "User Guide"}, {label: "About"}] }))
-//Menu.setApplicationMenu(menu);
+let menu = remote.Menu.getApplicationMenu();
+menu.items.find(x => x.label==="File").submenu.items.find(x=>x.label==="Load Data").click = ()=>{
+   $("#btnLoadData").click();
+}
 
 // Objects
 const ogButton = 'Process Data <i class="fas fa-angle-double-right"></i>';
@@ -30,7 +35,7 @@ function isPlaying(vid) {
 
 // Handlers
 $("#btnLoadData").click(async (e) => {
-   let files = await FileSelector("video/*", true);
+   let files = await FileSelector(".mp4", true);
    fileListBox.setFiles([...files].map(x => x.path));
 });
 
@@ -45,36 +50,100 @@ $("#btnImportCsv").click(async (e) => {
       dialog.showMessageBox({type: "warning", message: "All files must be in csv format", title: "Wrong format"})
       return;
    }
-   $(".statusBar span").html("Status: Processing CSV files...");
    if (files.length === 1) {
       // single csv select
       if (fileListBox.selectedIndex === null) {
          dialog.showMessageBox({type: "warning", message: "When importing a single CSV, you must select a matching video file", title: "No file selected"})
          return;
       }
-      fileListBox.addFile(files[0].path, fileListBox.selectedFilePath);
-      fileListBox.setStats(fileListBox.selectedFilePath, await buildStats(fileListBox.selectedFilePath, files[0].path));
+      let inputFilePath = fileListBox.selectedFilePath;
+      let outputFilePath = await csvToVideo(inputFilePath, files[0].path);
+      if (!fs.existsSync(outputFilePath)) {
+         dialog.showMessageBox({type: "error", message: "Something went wrong creating the output video", title: "Error"});
+         return;
+      }
+      fileListBox.addFile(files[0].path, inputFilePath);
+      fileListBox.setStats(inputFilePath, await buildStats(inputFilePath, files[0].path, outputFilePath));
    } else {
       // multi csv select
-      doneFiles = [];
       for (let f of files) {
          let genPath = f.path.substr(0, f.path.length - 4);
          let parent = fileListBox.files.find(x=>x.path.startsWith(genPath));
          if (!parent) {
             dialog.showMessageBox({type: "warning", message: "When importing multiple CSV's, each csv file should have a matching video file with the same name and path", title: "Unmatched CSVs"})
-            for (let df of doneFiles) fileListBox.removeFile(df);
             return;
          }
-         fileListBox.addFile(f.path, parent.path);
-         fileListBox.setStats(parent.path, await buildStats(parent.path, f.path));
-         doneFiles.push(f.path);
+      }
+      for (let f of files) {
+         let genPath = f.path.substr(0, f.path.length - 4);
+         let parent = fileListBox.files.find(x=>x.path.startsWith(genPath));
+
+         let inputFilePath = parent.path;
+         let outputFilePath = await csvToVideo(inputFilePath, f.path);
+         if (!fs.existsSync(outputFilePath)) {
+            dialog.showMessageBox({type: "error", message: "Something went wrong creating the output video", title: "Error"});
+            return;
+         }
+         fileListBox.addFile(f.path, inputFilePath);
+         fileListBox.setStats(inputFilePath, await buildStats(inputFilePath, f.path, outputFilePath));
       }
    }
-   $(".statusBar span").html("Status: Ready");
-   
+   refreshVideo();
 });
 
+/**
+ * @param {string} vidPath 
+ * @param {string} csvPath 
+ */
+async function csvToVideo(vidPath, csvPath) {
+   setProgress(-1);
+   $(".statusBar span").html("Status: "+"Initialising video generation");
+   let deleteOnDone = false;
+   if (path.extname(vidPath) !== ".mp4") {
+      let baseInputName = path.basename(vidPath);
+      let newFilePath = os.tmpdir() + "/" + baseInputName.substr(0, baseInputName.length - 3) + "mp4";
+      fs.copyFileSync(vidPath, newFilePath);
+      vidPath = newFilePath;
+   }
+   let python = require('child_process').spawn(path.resolve('./DLM/csvToVideo.bat'), [vidPath, path.resolve(csvPath)]);
+   let updFunc = function(data){
+      let line = data.toString('utf8');
+      console.log(line);
+      let matches = /(\d+)%/.exec(line);
+      if (matches)
+         setProgress(Number(matches[1]), "video generation");
+   };
+   python.stdout.on('data', updFunc);
+   python.stderr.on('data', updFunc);
+   let prom = new Promise(async (resolve)=>{
+      python.once("exit", async ()=>{
+         setProgress(99);
+         if (deleteOnDone) fs.unlinkSync(vidPath);
+         let outputFilePath = "./DLM/Output/"+vidPath.replace(/^.*[\\\/]/, '');
+         if (fs.existsSync(outputFilePath)) {
+            let basedir = path.dirname(outputFilePath);
+            let base = path.basename(outputFilePath);
+            await new Promise(async (resolve)=>{
+               let probeResult = await ffprobe(outputFilePath, { path: ffprobeStatic.path });
+               let totalFrames = Number(probeResult.streams.find(x=>x.codec_type==="video").nb_frames);
+               ffmpeg(outputFilePath).videoCodec('libx264').on('progress', function(progress) {
+                  setProgress(Math.round(progress.frames/totalFrames * 100), "video conversion");
+                }).on('end', function(stdout, stderr) {
+                  fs.unlinkSync(outputFilePath);
+                  fs.renameSync(basedir+"/"+base.substr(0, base.length - 4)+"_h264.mp4", outputFilePath)
+                  resolve();
+               }).save(basedir+"/"+base.substr(0, base.length - 4)+"_h264.mp4");
+            });
+         }
+         setProgress(100);
+         resolve(outputFilePath);
+      });
+   });
+   return prom;
+}
+
 $("#btnProcess").click(async ()=>{
+   setProgress(-1, "detection");
    let vidFiles = getVideoFiles();
    if (fileListBox.selectedIndex === null) {
       dialog.showMessageBox({type: "warning", message: "You must select a video to process first", title: "No file selected"});
@@ -85,14 +154,42 @@ $("#btnProcess").click(async ()=>{
       return;
    }
    let inputFilePath = fileListBox.selectedFilePath;
+   let baseInputName = path.basename(inputFilePath);
+   let deleteOnDone = false;
+   if (path.extname(inputFilePath) !== ".mp4") {
+      let newFilePath = os.tmpdir() + "/" + baseInputName.substr(0, baseInputName.length - 3) + "mp4";
+      fs.copyFileSync(inputFilePath, newFilePath);
+      inputFilePath = newFilePath;
+   }
    let outputFilePath = "./DLM/Output/"+inputFilePath.replace(/^.*[\\\/]/, '');
-   let python = require('child_process').spawn('python', ['./DLM/process.py', fileListBox.selectedFilePath, $("#setDLM").val()]);
-   
+   let python = require('child_process').spawn(path.resolve('./DLM/process.bat'), [inputFilePath, $("#setDLM").val()]);
    python.stdout.on('data',function(data){
-      setProgress(Number(data.toString('utf8')));
+      let line = data.toString('utf8');
+      console.log(line);
+      let matches = /(\d+)%/.exec(line);
+      if (matches)
+         setProgress(Number(matches[1]), "detection");
+   });
+   python.stderr.on('data',function(data){
+      let line = data.toString('utf8');
+      console.log(line);
+      let matches = /(\d+)%/.exec(line);
+      if (matches)
+         setProgress(Number(matches[1]), "detection");
    });
    python.once("exit", async ()=>{
-      setProgress(100);
+      if (deleteOnDone) fs.unlinkSync(inputFilePath);
+      if (!fs.existsSync(outputFilePath.substr(0, outputFilePath.length - 4) + ".csv")) {
+         dialog.showMessageBox({type: "error", message: "Something went wrong in the detection algorithm", title: "Detection Error"});
+         setProgress(100);
+         return;
+      }
+      await csvToVideo(inputFilePath, path.resolve(outputFilePath.substr(0, outputFilePath.length - 4) + ".csv"));
+      if (!fs.existsSync(outputFilePath)) {
+         dialog.showMessageBox({type: "error", message: "Something went wrong creating the output video", title: "Error"});
+         setProgress(100);
+         return;
+      }
       fileListBox.setStats(
          inputFilePath, 
          await buildStats(
@@ -101,6 +198,7 @@ $("#btnProcess").click(async ()=>{
             outputFilePath
          )
       );
+      setProgress(100);
       refreshVideo();
    });
 });
@@ -137,15 +235,22 @@ fileListBox.onModify(()=>{
    refreshButtons();
 });
 
-function setProgress(num) {
-   if (!num || isNaN(num) || num === 100) {
+function setProgress(num, step) {
+   step = step ? step + " " : "";
+   if (num == null || isNaN(num) || num === 100) {
       $("#btnProcess").html(ogButton);
       $("#btnProcess").css("background", "rgba(52,199,52,1)");
       $(".statusBar span").html("Status: Ready");
       return;
    }
-   $("#btnProcess").html("Processing "+num+"%");
-   $(".statusBar span").html("Status: "+"Processing "+num+"%");
+   if (num === -1) {
+      $("#btnProcess").html("Initialising...");
+      $(".statusBar span").html("Status: "+"Initialising "+step);
+   } else {
+      $("#btnProcess").html("Processing "+num+"%");
+      $(".statusBar span").html("Status: "+"Processing "+step+num+"%");
+   }
+
    $("#btnProcess").css("background", 
       "linear-gradient(90deg, rgba(52,199,52,1) "+num+"%, rgba(200,200,200,1) "+num+"%)");
 }
@@ -251,15 +356,15 @@ function refreshVideo() {
          $("#outVid")[0].load();
    } else {
       let showOutput = $("#chkShowBoxes").is(":checked");
-      let outputPath = "./DLM/Output/" + fileListBox.selectedFilePath.replace(/^.*[\\\/]/, '');
+      let outputPath = fileListBox.selectedFile.stats ? path.resolve(fileListBox.selectedFile.stats.processedPath) : null;
       let outputExists = fs.existsSync(outputPath);
       
       // set source files
       $("#mainVid source").attr("src", fileListBox.selectedFilePath);
       $("#mainVid source").attr("type", mime.lookup(fileListBox.selectedFilePath));
       if (outputExists) {
-         $("#outVid source").attr("src", "." + outputPath);
-         $("#outVid source").attr("type", mime.lookup("." + outputPath));
+         $("#outVid source").attr("src", outputPath);
+         $("#outVid source").attr("type", mime.lookup(outputPath));
       } else {
          $("#outVid source").attr("src", null);
          $("#outVid source").attr("type", null);
@@ -303,3 +408,41 @@ function refreshVideo() {
       }
    }
 }
+
+$("#btnSaveVideo").click(()=>{
+   if (!fileListBox.selectedFile) {
+      dialog.showMessageBox({type: "warning", message: "You must select a video", title: "Nothing Selected"});
+      return;
+   }
+   if (!fileListBox.selectedFile.stats) {
+      dialog.showMessageBox({type: "warning", message: "Video must be processed", title: "Unprocessed video"});
+      return;
+   }
+   let og_basename = path.basename(fileListBox.selectedFile.stats.originalPath);
+   let savePath = dialog.showSaveDialogSync({
+      title: "Save Video",
+      defaultPath: path.dirname(fileListBox.selectedFile.stats.originalPath)+"/"+og_basename.substr(0, og_basename.length - 4)+"_processed.mp4"
+   });
+   if (savePath) {
+      fs.copyFileSync(fileListBox.selectedFile.stats.processedPath, savePath);
+   }
+});
+
+$("#btnExportCSV").click(()=>{
+   if (!fileListBox.selectedFile) {
+      dialog.showMessageBox({type: "warning", message: "You must select a video", title: "Nothing Selected"});
+      return;
+   }
+   if (!fileListBox.selectedFile.stats) {
+      dialog.showMessageBox({type: "warning", message: "Video must be processed", title: "Unprocessed video"});
+      return;
+   }
+   let og_basename = path.basename(fileListBox.selectedFile.stats.originalPath);
+   let savePath = dialog.showSaveDialogSync({
+      title: "Export CSV",
+      defaultPath: path.dirname(fileListBox.selectedFile.stats.originalPath)+"/"+og_basename.substr(0, og_basename.length - 4)+".csv"
+   });
+   if (savePath) {
+      fs.copyFileSync(fileListBox.selectedFile.stats.csvPath, savePath);
+   }
+});

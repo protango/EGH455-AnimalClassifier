@@ -1,0 +1,36 @@
+{
+    "model" : {
+        "backend":              "MobileNet",
+        "input_size":           416,
+        "anchors":              [0.12,0.48, 0.24,0.79, 0.33,0.39, 0.59,1.24, 0.77,2.38],
+        "max_box_per_image":    200,        
+        "labels":               ["shark","dolphin","surfer"]
+    },
+
+    "train": {
+        "train_image_folder":   "data/images_2/",
+        "train_annot_folder":   "data/annotations_2/",     
+          
+        "train_times":          3,
+        "pretrained_weights":   "",
+        "batch_size":           4,
+        "learning_rate":        1e-4,
+        "nb_epochs":            3,
+        "warmup_epochs":        1,
+
+        "object_scale":         10.0,
+        "no_object_scale":      2.0,
+        "coord_scale":          2.0,
+        "class_scale":         20.0,
+
+        "saved_weights_name":   "mnet20.h5",
+        "debug":                true
+    },
+
+    "valid": {
+        "valid_image_folder":   "",
+        "valid_annot_folder":   "",
+
+        "valid_times":          1
+    }
+}

@@ -1,7 +1,8 @@
-const { app, BrowserWindow } = require('electron')
+const { app, BrowserWindow, Menu, MenuItem } = require('electron')
 const fs = require('fs')
 var rimraf = require("rimraf");
 
+/** @type {Electron.BrowserWindow} */
 let win
 
 function createWindow () {
@@ -18,9 +19,20 @@ function createWindow () {
     webPreferences: {
       nodeIntegration: true
     }
-  })
+  });
 
-  win.loadFile('views/index.html')
+  win.loadFile('views/index.html');
+
+const menu = new Menu()
+menu.append(new MenuItem({ label: 'File', submenu: [{label: "Load Data"}, {label: "Import CSV"}] }))
+menu.append(new MenuItem({ label: 'Help', submenu: [
+   {label: "User Guide"}, 
+   {label: "About"}, 
+   {label: "Open Dev Tools", accelerator: 'CmdOrCtrl+Shift+I', click: () => {
+      win.webContents.openDevTools({ mode: 'detach' });
+   }}] 
+}));
+Menu.setApplicationMenu(menu);
 
   win.on('closed', () => {
     win = null

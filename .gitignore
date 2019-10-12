@@ -62,3 +62,6 @@ typings/
 
 videos
 *.mp4
+DLM/Output
+DLM/keras-yolo2-master/full_yolo_backend.h5
+DLM/keras-yolo2-master/yolo-model.h5

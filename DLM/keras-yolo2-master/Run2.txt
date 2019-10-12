@@ -1,0 +1,37 @@
+Epoch 1/21
+1445/1445 [==============================] - 624s 432ms/step - loss: 10.4968 - val_loss: 12.2868
+
+Epoch 00001: val_loss improved from inf to 12.28678, saving model to FullYolo_model_FullD_both_v4_640_input.h5
+Epoch 2/21
+1445/1445 [==============================] - 627s 434ms/step - loss: 0.4301 - val_loss: 0.9051
+
+Epoch 00002: val_loss improved from 12.28678 to 0.90507, saving model to FullYolo_model_FullD_both_v4_640_input.h5
+Epoch 3/21
+1445/1445 [==============================] - 615s 425ms/step - loss: 0.3174 - val_loss: 0.8973
+
+Epoch 00003: val_loss improved from 0.90507 to 0.89731, saving model to FullYolo_model_FullD_both_v4_640_input.h5
+Epoch 4/21
+1445/1445 [==============================] - 653s 452ms/step - loss: 0.2451 - val_loss: 11.5334
+
+Epoch 00004: val_loss did not improve from 0.89731
+Epoch 5/21
+1445/1445 [==============================] - 656s 454ms/step - loss: 0.2313 - val_loss: 0.8666
+
+Epoch 00005: val_loss improved from 0.89731 to 0.86657, saving model to FullYolo_model_FullD_both_v4_640_input.h5
+Epoch 6/21
+1445/1445 [==============================] - 632s 437ms/step - loss: 0.2142 - val_loss: 1.8709
+
+Epoch 00006: val_loss did not improve from 0.86657
+Epoch 7/21
+1445/1445 [==============================] - 619s 429ms/step - loss: 0.1947 - val_loss: 1163349698484035328.0000
+
+Epoch 00007: val_loss did not improve from 0.86657
+Epoch 8/21
+1445/1445 [==============================] - 618s 427ms/step - loss: 0.1703 - val_loss: 34756226.4667
+
+Epoch 00008: val_loss did not improve from 0.86657
+Epoch 00008: early stopping
+surfer 0.0000
+dolphin 0.0000
+shark 0.5419
+mAP: 0.1806
