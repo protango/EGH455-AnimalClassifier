@@ -16,13 +16,17 @@ const { Menu, MenuItem, dialog, BrowserWindow, shell, app  } = remote
 
 // Create Menu
 let win = remote.getCurrentWindow();
-const menu = new Menu()
-menu.append(new MenuItem({ label: 'File', submenu: [{label: "Load Data", click: ()=>$("#btnLoadData").click()}, {label: "Import CSV", click: ()=>$("#btnImportCsv").click()}] }))
+const menu = new Menu();
+menu.append(new MenuItem({ label: 'File', submenu: [
+   {label: "Load Data", accelerator: 'CmdOrCtrl+O', click: ()=>$("#btnLoadData").click()}, 
+   {label: "Import CSV", accelerator: 'CmdOrCtrl+I', click: ()=>$("#btnImportCsv").click()},
+   {label: "Save Video", accelerator: 'CmdOrCtrl+S', click: ()=>$("#btnSaveVideo").click()},
+   {label: "Export CSV", accelerator: 'CmdOrCtrl+E', click: ()=>$("#btnExportCSV").click()}
+]}));
 menu.append(new MenuItem({ label: 'Help', submenu: [
    {label: "User Guide", click: ()=>{
       shell.openItem(path.resolve(app.getAppPath(), './User_Guide/user_guide.pdf'));
    }}, 
-   {label: "About"}, 
    {label: "Open Dev Tools", accelerator: 'CmdOrCtrl+Shift+I', click: () => {
       win.webContents.openDevTools({ mode: 'detach' });
    }}] 
@@ -147,6 +151,8 @@ async function csvToVideo(vidPath, csvPath) {
                let probeResult = await ffprobe(outputFilePath, { path: ffprobeStatic.path });
                let totalFrames = Number(probeResult.streams.find(x=>x.codec_type==="video").nb_frames);
                ffmpeg(outputFilePath).videoCodec('libx264').on('progress', function(progress) {
+                  let prog = Math.round(progress.frames/totalFrames * 100);
+                  if (prog == null || isNaN(prog) || prog === 100) prog = 50;
                   setProgress(Math.round(progress.frames/totalFrames * 100), "video conversion");
                 }).on('end', function(stdout, stderr) {
                   fs.unlinkSync(outputFilePath);
@@ -324,6 +330,10 @@ setInterval(() => {
                   <td>${++i}</td>
                   <td>${obj.label}</td>
                   <td>${Math.round(obj.confidence*100)}%</td>
+                  <td>${Math.round(obj.xMin*100)/100}</td>
+                  <td>${Math.round(obj.yMin*100)/100}</td>
+                  <td>${Math.round(obj.xMax*100)/100}</td>
+                  <td>${Math.round(obj.yMax*100)/100}</td>
                </tr>
             `));
          }

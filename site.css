@@ -165,7 +165,7 @@ html,body {
 }
 
 .statsTable {
-    width: 100%;
+    width: 400px;
     border-collapse: collapse;
 }
 
