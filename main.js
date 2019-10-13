@@ -23,17 +23,6 @@ function createWindow () {
 
   win.loadFile('views/index.html');
 
-const menu = new Menu()
-menu.append(new MenuItem({ label: 'File', submenu: [{label: "Load Data"}, {label: "Import CSV"}] }))
-menu.append(new MenuItem({ label: 'Help', submenu: [
-   {label: "User Guide"}, 
-   {label: "About"}, 
-   {label: "Open Dev Tools", accelerator: 'CmdOrCtrl+Shift+I', click: () => {
-      win.webContents.openDevTools({ mode: 'detach' });
-   }}] 
-}));
-Menu.setApplicationMenu(menu);
-
   win.on('closed', () => {
     win = null
   })

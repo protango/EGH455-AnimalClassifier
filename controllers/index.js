@@ -12,13 +12,22 @@ var ffprobe = require('ffprobe'), ffprobeStatic = require('ffprobe-static');
 const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
 const ffmpeg = require('fluent-ffmpeg');
 ffmpeg.setFfmpegPath(ffmpegPath);
-const { Menu, MenuItem, dialog } = remote
+const { Menu, MenuItem, dialog, BrowserWindow, shell, app  } = remote
 
 // Create Menu
-let menu = remote.Menu.getApplicationMenu();
-menu.items.find(x => x.label==="File").submenu.items.find(x=>x.label==="Load Data").click = ()=>{
-   $("#btnLoadData").click();
-}
+let win = remote.getCurrentWindow();
+const menu = new Menu()
+menu.append(new MenuItem({ label: 'File', submenu: [{label: "Load Data", click: ()=>$("#btnLoadData").click()}, {label: "Import CSV", click: ()=>$("#btnImportCsv").click()}] }))
+menu.append(new MenuItem({ label: 'Help', submenu: [
+   {label: "User Guide", click: ()=>{
+      shell.openItem(path.resolve(app.getAppPath(), './User_Guide/user_guide.pdf'));
+   }}, 
+   {label: "About"}, 
+   {label: "Open Dev Tools", accelerator: 'CmdOrCtrl+Shift+I', click: () => {
+      win.webContents.openDevTools({ mode: 'detach' });
+   }}] 
+}));
+Menu.setApplicationMenu(menu);
 
 // Objects
 const ogButton = 'Process Data <i class="fas fa-angle-double-right"></i>';
@@ -35,18 +44,29 @@ function isPlaying(vid) {
 
 // Handlers
 $("#btnLoadData").click(async (e) => {
-   let files = await FileSelector(".mp4", true);
-   fileListBox.setFiles([...files].map(x => x.path));
+   let files = dialog.showOpenDialogSync({
+      title: "Load Data",
+      filters: [{name: "MP4 Files", extensions: ["mp4"]}],
+      properties: ["multiSelections"]
+   });
+   if (files && files.length)
+      fileListBox.setFiles(files);
 });
 
 $("#btnImportCsv").click(async (e) => {
-   let files = (await FileSelector(".csv", true));
 
-   if (fileListBox.files.some(x => [...files].some(y => x.path === y.path))) {
+   let files = dialog.showOpenDialogSync({
+      title: "Import CSV",
+      filters: [{name: "CSV Files", extensions: ["csv"]}],
+      properties: ["openFile"]
+   });
+   if (!files || !files.length) return;
+
+   if (fileListBox.files.some(x => files.some(y => x.path === y))) {
       dialog.showMessageBox({type: "warning", message: "You cannot select the same csv file twice", title: "Duplicate CSV"})
       return;
    }
-   if ([...files].some(x => !x.path.toLowerCase().endsWith(".csv"))){
+   if (files.some(x => !x.toLowerCase().endsWith(".csv"))){
       dialog.showMessageBox({type: "warning", message: "All files must be in csv format", title: "Wrong format"})
       return;
    }
@@ -57,17 +77,17 @@ $("#btnImportCsv").click(async (e) => {
          return;
       }
       let inputFilePath = fileListBox.selectedFilePath;
-      let outputFilePath = await csvToVideo(inputFilePath, files[0].path);
+      let outputFilePath = await csvToVideo(inputFilePath, files[0]);
       if (!fs.existsSync(outputFilePath)) {
          dialog.showMessageBox({type: "error", message: "Something went wrong creating the output video", title: "Error"});
          return;
       }
-      fileListBox.addFile(files[0].path, inputFilePath);
-      fileListBox.setStats(inputFilePath, await buildStats(inputFilePath, files[0].path, outputFilePath));
+      fileListBox.addFile(files[0], inputFilePath);
+      fileListBox.setStats(inputFilePath, await buildStats(inputFilePath, files[0], outputFilePath));
    } else {
       // multi csv select
       for (let f of files) {
-         let genPath = f.path.substr(0, f.path.length - 4);
+         let genPath = f.substr(0, f.length - 4);
          let parent = fileListBox.files.find(x=>x.path.startsWith(genPath));
          if (!parent) {
             dialog.showMessageBox({type: "warning", message: "When importing multiple CSV's, each csv file should have a matching video file with the same name and path", title: "Unmatched CSVs"})
@@ -75,17 +95,17 @@ $("#btnImportCsv").click(async (e) => {
          }
       }
       for (let f of files) {
-         let genPath = f.path.substr(0, f.path.length - 4);
+         let genPath = f.substr(0, f.length - 4);
          let parent = fileListBox.files.find(x=>x.path.startsWith(genPath));
 
          let inputFilePath = parent.path;
-         let outputFilePath = await csvToVideo(inputFilePath, f.path);
+         let outputFilePath = await csvToVideo(inputFilePath, f);
          if (!fs.existsSync(outputFilePath)) {
             dialog.showMessageBox({type: "error", message: "Something went wrong creating the output video", title: "Error"});
             return;
          }
-         fileListBox.addFile(f.path, inputFilePath);
-         fileListBox.setStats(inputFilePath, await buildStats(inputFilePath, f.path, outputFilePath));
+         fileListBox.addFile(f, inputFilePath);
+         fileListBox.setStats(inputFilePath, await buildStats(inputFilePath, f, outputFilePath));
       }
    }
    refreshVideo();
@@ -105,7 +125,7 @@ async function csvToVideo(vidPath, csvPath) {
       fs.copyFileSync(vidPath, newFilePath);
       vidPath = newFilePath;
    }
-   let python = require('child_process').spawn(path.resolve('./DLM/csvToVideo.bat'), [vidPath, path.resolve(csvPath)]);
+   let python = require('child_process').spawn('"'+path.resolve('./DLM/csvToVideo.bat')+'"', ['"'+vidPath+'"', '"'+path.resolve(csvPath)+'"'], { shell: true });
    let updFunc = function(data){
       let line = data.toString('utf8');
       console.log(line);
@@ -162,19 +182,19 @@ $("#btnProcess").click(async ()=>{
       inputFilePath = newFilePath;
    }
    let outputFilePath = "./DLM/Output/"+inputFilePath.replace(/^.*[\\\/]/, '');
-   let python = require('child_process').spawn(path.resolve('./DLM/process.bat'), [inputFilePath, $("#setDLM").val()]);
+   let python = require('child_process').spawn('"'+path.resolve('./DLM/process.bat')+'"', ['"'+inputFilePath+'"', '"'+$("#setDLM").val()+'"'], { shell: true });
    python.stdout.on('data',function(data){
       let line = data.toString('utf8');
       console.log(line);
       let matches = /(\d+)%/.exec(line);
-      if (matches)
+      if (matches && Number(matches[1])!==100)
          setProgress(Number(matches[1]), "detection");
    });
    python.stderr.on('data',function(data){
       let line = data.toString('utf8');
       console.log(line);
       let matches = /(\d+)%/.exec(line);
-      if (matches)
+      if (matches && Number(matches[1])!==100)
          setProgress(Number(matches[1]), "detection");
    });
    python.once("exit", async ()=>{
@@ -326,14 +346,6 @@ async function buildStats(vidPath, csvPath, outVidPath) {
    fps = Number(fps[1]) / Number(fps[2]);
    /** @type {FileListBox.VidStats} */ 
    let stats = {originalPath: vidPath, csvPath: csvPath, fps: fps, processedPath: outVidPath};
-   if (!outVidPath) {
-      let outputFilePath = "./DLM/Output/"+vidPath.replace(/^.*[\\\/]/, '');
-      await new Promise((resolve) => {
-         let python = require('child_process').spawn('python', ['./DLM/makeVideo.py', vidPath, csvPath]);
-         python.once('exit', function() {resolve();});
-      });
-      stats.processedPath = outputFilePath;
-   }
    stats.frames = await parseCSV(csvPath);
    return stats;
 }
