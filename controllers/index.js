@@ -173,10 +173,12 @@ $("#btnProcess").click(async ()=>{
    let vidFiles = getVideoFiles();
    if (fileListBox.selectedIndex === null) {
       dialog.showMessageBox({type: "warning", message: "You must select a video to process first", title: "No file selected"});
+      setProgress(100);
       return;
    }
    if (fileListBox.selectedFile.stats) {
       dialog.showMessageBox({type: "warning", message: "This video has already been processed", title: "Already processed"});
+      setProgress(100);
       return;
    }
    let inputFilePath = fileListBox.selectedFilePath;
