@@ -134,14 +134,14 @@ async function csvToVideo(vidPath, csvPath) {
       let line = data.toString('utf8');
       console.log(line);
       let matches = /(\d+)%/.exec(line);
-      if (matches)
+      if (matches && Number(matches[1]) !== 100)
          setProgress(Number(matches[1]), "video generation");
    };
    python.stdout.on('data', updFunc);
    python.stderr.on('data', updFunc);
    let prom = new Promise(async (resolve)=>{
       python.once("exit", async ()=>{
-         setProgress(99);
+         setProgress(-1, "video conversion");
          if (deleteOnDone) fs.unlinkSync(vidPath);
          let outputFilePath = "./DLM/Output/"+vidPath.replace(/^.*[\\\/]/, '');
          if (fs.existsSync(outputFilePath)) {
@@ -151,9 +151,9 @@ async function csvToVideo(vidPath, csvPath) {
                let probeResult = await ffprobe(outputFilePath, { path: ffprobeStatic.path });
                let totalFrames = Number(probeResult.streams.find(x=>x.codec_type==="video").nb_frames);
                ffmpeg(outputFilePath).videoCodec('libx264').on('progress', function(progress) {
-                  let prog = Math.round(progress.frames/totalFrames * 100);
+                  let prog = Math.floor(progress.frames/totalFrames * 100);
                   if (prog == null || isNaN(prog) || prog === 100) prog = 50;
-                  setProgress(Math.round(progress.frames/totalFrames * 100), "video conversion");
+                  setProgress(prog, "video conversion");
                 }).on('end', function(stdout, stderr) {
                   fs.unlinkSync(outputFilePath);
                   fs.renameSync(basedir+"/"+base.substr(0, base.length - 4)+"_h264.mp4", outputFilePath)
@@ -313,7 +313,14 @@ setInterval(() => {
 
       statsTBody.empty();
       if (f.stats.frames.length) {
-         let prevDiff = -1;
+         let frameNum = Math.floor(vid[0].currentTime * f.stats.fps);
+         let frame = f.stats.frames.find(x=>x.frame===frameNum);
+         while (frame == null && frameNum >= 0) {
+            frameNum--;
+            frame = f.stats.frames.find(x=>x.frame===frameNum);
+         }
+
+         /*let prevDiff = -1;
          for (let i = 0; i < f.stats.frames.length; i++) {
             var frame = f.stats.frames[i];
             let tDiff = Math.abs(vid[0].currentTime - (frame.frame / f.stats.fps))
@@ -322,20 +329,25 @@ setInterval(() => {
                break;
             }
             prevDiff = tDiff;
-         }
+         }*/
          let i = 0;
-         for (let obj of frame.objects || []) {
-            statsTBody.append($(`
-               <tr>
-                  <td>${++i}</td>
-                  <td>${obj.label}</td>
-                  <td>${Math.round(obj.confidence*100)}%</td>
-                  <td>${Math.round(obj.xMin*100)/100}</td>
-                  <td>${Math.round(obj.yMin*100)/100}</td>
-                  <td>${Math.round(obj.xMax*100)/100}</td>
-                  <td>${Math.round(obj.yMax*100)/100}</td>
-               </tr>
-            `));
+         if (frame) {
+            sharkCnt.text(frame.objects.filter(x => x.label==="shark").length);
+            surfCnt.text(frame.objects.filter(x => x.label==="surfer").length);
+            dolphCnt.text(frame.objects.filter(x => x.label==="dolphin").length);
+            for (let obj of frame.objects || []) {
+               statsTBody.append($(`
+                  <tr>
+                     <td>${++i}</td>
+                     <td>${obj.label}</td>
+                     <td>${Math.round(obj.confidence*100)}%</td>
+                     <td>${Math.round(obj.xMin*100)/100}</td>
+                     <td>${Math.round(obj.yMin*100)/100}</td>
+                     <td>${Math.round(obj.xMax*100)/100}</td>
+                     <td>${Math.round(obj.yMax*100)/100}</td>
+                  </tr>
+               `));
+            }
          }
       }
    } else if (!noDataDisplayed && (!f || !f.stats)) {
